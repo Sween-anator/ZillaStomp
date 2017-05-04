@@ -15,11 +15,27 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     //var starfield:SKEmitterNode!
     var player:SKSpriteNode!
     
+    var smasher:SKSpriteNode!
+    
+    
+    
+    // Health
+    let fullHealth = 1000
+    let hBarWidth:CGFloat = 100
+    let hBarHeight:CGFloat = 20
+    let healthBar = SKSpriteNode()
+    
+    var playerHealth = 0
+    
+    
     let motionManager = CMMotionManager()
     var yAcc:CGFloat = 0
     
     
     var scoreLabel:SKLabelNode!
+    
+    
+    
     var score:Int = 0{
         didSet{
             scoreLabel.text = "Score: \(score)"
@@ -31,6 +47,8 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     
     var troopCount = 0
     let troopSpeed = 3
+    
+    var troopsSpawnable = 1
     
     
     // CHANGE: Make troops
@@ -44,17 +62,34 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     
     override func didMove(to view: SKView) {
         
-        player = SKSpriteNode(imageNamed: "shuttle")
-        player.position = CGPoint(x: self.frame.size.width / 2, y: self.frame.size.height / 1.5)
-        player.physicsBody = SKPhysicsBody(rectangleOf: player.size)
+        
+        
+        // Player
+        player = SKSpriteNode(imageNamed: "ZillaColor")
+        player.position = CGPoint(x: self.frame.size.width / 2, y: self.frame.size.height + 200)
+        
+        player.physicsBody = SKPhysicsBody(rectangleOf: CGSize(width: 10, height: 10), center: CGPoint(x: 0, y: 0))
         
         self.addChild(player)
+    
+        
+        // Location test Node
+//        let child = SKSpriteNode(color: UIColor.green, size: CGSize(width:50.0, height:50.0))
+//        child.zPosition = 1
+//        child.position = CGPoint(x: -100, y: -270)
+//        player.addChild(child)
+        
+        
         
         self.physicsWorld.gravity = CGVector(dx: 0, dy: 0)
         self.physicsWorld.contactDelegate = self
         
+        
+        
+        // Score
+        
         scoreLabel = SKLabelNode(text: "Score: 0")
-        scoreLabel.position = CGPoint(x: self.frame.size.width / 2 + 200, y: 800)
+        scoreLabel.position = CGPoint(x: self.frame.size.width / 2 + 200, y: self.frame.size.height - 60)
         
         scoreLabel.fontName = "AmericanTypewriter-Bold"
         scoreLabel.fontSize = 27
@@ -67,6 +102,14 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         gameTimer = Timer.scheduledTimer(timeInterval: 0.75, target: self, selector: #selector(addTroops), userInfo: nil, repeats: true)
         
         
+        // Health
+        playerHealth = fullHealth
+        
+        healthBar.position = CGPoint(x: self.frame.size.width / 2 + 200, y: self.frame.size.height - 70)
+        healthBar(healthBar: healthBar, withHealthPoints: playerHealth)
+        self.addChild(healthBar)
+        
+        
         
         // Motion Management
         
@@ -75,7 +118,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             
             if let accelerometerData = data {
                 let acceleration = accelerometerData.acceleration
-                self.yAcc = CGFloat(acceleration.y) * 0.75 + self.yAcc * 0.25
+                self.yAcc =  -1 * (CGFloat(acceleration.y) * 0.75 + self.yAcc * 0.25)
             }
         }
         
@@ -89,7 +132,6 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         sideSpawn = GKRandomSource.sharedRandom().arrayByShufflingObjects(in: sideSpawn) as! [String]
         
         
-        
         let troop = SKSpriteNode(imageNamed: possibleTroops[0])
         
         let randomTroopPosition = GKRandomDistribution(lowestValue: Int(troop.size.width + 5), highestValue: Int(self.frame.width - troop.size.width - 5))
@@ -99,9 +141,9 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         
         // Spawn Locations
         if sideSpawn[0] == "left"{
-        troop.position = CGPoint(x: 0, y: 470)
+        troop.position = CGPoint(x: 0, y: 10)
         } else {
-            troop.position = CGPoint(x: frame.size.width + troop.size.width, y: 470)
+            troop.position = CGPoint(x: frame.size.width + troop.size.width, y: 10)
         }
         
         troop.physicsBody = SKPhysicsBody(rectangleOf: troop.size)
@@ -116,13 +158,16 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         
         var actionArray = [SKAction]()
         
-        if troopCount <= 10{
+        if troopCount <= troopsSpawnable{
+            
+
             
         self.addChild(troop)
         
         troopCount += 1
         
         actionArray.append(SKAction.moveTo(x: position, duration: animationDuration))
+            
         }
         
 //        actionArray.append(SKAction.removeFromParent())
@@ -130,17 +175,53 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         
         troop.run(SKAction.sequence(actionArray))
         
+        
     }
     
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
         slamFootDown()
     }
     
+    func healthBar(healthBar: SKSpriteNode, withHealthPoints hp: Int){
+        
+        let barSize = CGSize(width: hBarWidth, height: hBarHeight)
+        
+        let fillColor = UIColor(red: 113.0/255, green: 202.0/255, blue: 53.0/255, alpha:1)
+        let borderColor = UIColor(red: 35.0/255, green: 28.0/255, blue: 40.0/255, alpha:1)
+        
+        // create drawing context
+        UIGraphicsBeginImageContextWithOptions(barSize, false, 0)
+        let context = UIGraphicsGetCurrentContext()
+        
+        // draw the outline for the health bar
+        borderColor.setStroke()
+        let borderRect = CGRect(origin: CGPoint.zero, size: barSize)
+        context!.stroke(borderRect, width: 1)
+        
+        // draw the health bar with a colored rectangle
+        fillColor.setFill()
+        let barWidth = (barSize.width - 1) * CGFloat(hp) / CGFloat(fullHealth)
+        let barRect = CGRect(x: 0.5, y: 0.5, width: barWidth, height: barSize.height - 1)
+        context!.fill(barRect)
+        
+        // extract image
+        let spriteImage = UIGraphicsGetImageFromCurrentImageContext()
+        UIGraphicsEndImageContext()
+        
+        // set sprite texture and size
+        healthBar.texture = SKTexture(image: spriteImage!)
+        healthBar.size = barSize
+        
+    }
+    
     func slamFootDown(){
         
         //self.run(SKAction.playSoundFileNamed("torpedo.mp3", waitForCompletion: false))
         
-        player.physicsBody = SKPhysicsBody(rectangleOf: player.size)
+        //player.physicsBody = SKPhysicsBody(rectangleOf: player.size)
+        
+        player.physicsBody = SKPhysicsBody(edgeFrom: CGPoint(x: -300, y: -270), to: CGPoint(x: -100, y: -270))
+        
         player.physicsBody?.isDynamic = true
         
         player.physicsBody?.categoryBitMask = footCategory
@@ -150,14 +231,32 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         player.physicsBody?.usesPreciseCollisionDetection = true
         
         
-        let animationDuration:TimeInterval = 0.75
+        let animationDurationDown:TimeInterval = 0.75
+        let animationDurationUp:TimeInterval = 1
         
+      
+
         var actionArray = [SKAction]()
         
-        actionArray.append(SKAction.move(to: CGPoint(x: player.position.x, y: 0), duration: animationDuration))
-        actionArray.append(SKAction.removeFromParent())
+        // Stomp down
+        actionArray.append(SKAction.move(to: CGPoint(x: player.position.x, y: 280), duration: animationDurationDown))
+        
+        
+        
+        // Raise foot
+        actionArray.append(SKAction.move(to: CGPoint(x: player.position.x, y: self.frame.size.height + 200), duration: animationDurationUp))
         
         player.run(SKAction.sequence(actionArray))
+        
+        
+        // Add troops depending on score
+        
+        
+//        player = SKSpriteNode(imageNamed: "shuttle")
+//        player.position = CGPoint(x: self.frame.size.width / 2, y: self.frame.size.height / 1.5)
+//        player.physicsBody = SKPhysicsBody(rectangleOf: player.size)
+//        
+//        self.addChild(player)
     }
     
     
@@ -200,15 +299,25 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     
     
     override func didSimulatePhysics() {
-        
-        player.position.x += yAcc * 50
-        
-        if player.position.x < -20 {
-            player.position = CGPoint(x: self.size.width + 20, y: player.position.y)
-        } else if player.position.x > self.size.width + 20 {
-            player.position = CGPoint(x: -20, y: player.position.y)
+        if player.position.y >= self.frame.size.height + 200{
+        player.position.x -= yAcc * 50
+            
+            if player.position.x <= 0 {
+                player.position = CGPoint(x: 0, y: player.position.y)
+            } else if player.position.x > self.size.width {
+                player.position = CGPoint(x: self.size.width + 50, y: player.position.y)
+            }
         }
         
+    }
+    
+    override func update(_ currentTime: TimeInterval) {
+        
+        //print(troopsAlive[0].position.x)
+        
+//        playerHealth -= 2
+//        
+//        healthBar(node: healthBar, withHealthPoints: playerHealth)
     }
     
 }
